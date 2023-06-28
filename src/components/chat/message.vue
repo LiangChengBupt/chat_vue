@@ -1,6 +1,6 @@
 <template>
   <div id="message" v-scroll-bottom="sessions">
-    <div v-if="currentSession && currentSession.username != '群聊'">
+    <div v-if="currentSession && !currentSession.username.includes('群')">
       <ul>
         <li
           v-for="entry in sessions[

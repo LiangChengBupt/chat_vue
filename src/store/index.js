@@ -111,13 +111,16 @@ const store = new Vuex.Store({
                             //创建保存消息记录的数组
                             Vue.set(state.sessions, state.currentUser.username + "#" + friendName, []);
                         }
-                        state.sessions[state.currentUser.username + "#" + friendName].push({
-                            content: resp.content,
-                            date: resp.createTime,
-                            fromNickname: resp.fromNickname,
-                            messageTypeId: resp.messageTypeId,
-                            self: (resp.fromNickname == state.currentUser.username)
-                        })
+                        for (let i = 0; i < resp.length; i++) {
+                            const msgItem = resp[i];
+                            state.sessions[state.currentUser.username + "#" + friendName].push({
+                                content: msgItem.content,
+                                date: msgItem.createTime,
+                                fromNickname: msgItem.fromNickname,
+                                messageTypeId: msgItem.messageTypeId,
+                                self: (msgItem.fromNickname == state.currentUser.username)
+                            })
+                        }
                         // console.log("私聊数据"+state.currentUser.username+"#"+friendName);
                         // console.log(state.privateSessions);
                         // console.log(resp);
