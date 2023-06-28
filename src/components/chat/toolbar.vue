@@ -51,6 +51,19 @@
             ><i class="fa fa-android fa-2x" aria-hidden="true"></i
           ></el-button>
         </el-tooltip>
+        <el-tooltip
+          class="item"
+          effect="dark"
+          content="查看好友申请"
+          placement="right"
+        >
+          <el-button
+            @click="chooseChatList('申请')"
+            class="toolBtn"
+            size="small"
+            ><i class="fa fa-envelope fa-2x" aria-hidden="true"></i
+          ></el-button>
+        </el-tooltip>
       </div>
       <div class="bottomBtnBar">
         <el-tooltip
@@ -59,7 +72,7 @@
           content="个人中心"
           placement="right"
         >
-          <el-button class="toolBtn" size="small"
+          <el-button class="toolBtn" size="small" @click="showProfileDialog"
             ><i class="fa fa-user fa-2x" aria-hidden="true"></i
           ></el-button>
         </el-tooltip>
@@ -85,6 +98,26 @@
             ><i class="fa fa-sign-out fa-2x" aria-hidden="true"></i
           ></el-button>
         </el-tooltip>
+        <el-dialog title="个人信息" :visible.sync="profileDialogVisible" show-close center>
+            <!-- 自定义关闭按钮 -->
+            <span slot="title">
+              个人信息
+              <i class="fa fa-times" aria-hidden="true" @click="closeProfileDialog"></i>
+            </span>
+      
+            <!-- 展示个人信息的内容 -->
+            <div class="profile-content" style="display: flex; justify-content: center; align-items: center;">
+              <div class="profile-image">
+                <img :src="this.user.userProfile" alt="用户头像">
+              </div>
+              <div class="profile-divider"></div>
+              <div class="profile-details">
+                <p><strong>登录账号：</strong>{{ this.user.id }}</p>
+                <p><strong>用户名：</strong>{{ this.user.username }}</p>
+                <p><strong>昵称：</strong>{{ this.user.nickname }}</p>
+              </div>
+            </div>
+        </el-dialog>
       </div>
     </div>
     <el-dialog
@@ -109,6 +142,7 @@ export default {
       user: JSON.parse(window.sessionStorage.getItem("user")),
       feedBackDialogVisible: false,
       feedBackContent: "",
+      profileDialogVisible: false // 弹框显示状态
     };
   },
   methods: {
@@ -139,6 +173,7 @@ export default {
     },
     //选择聊天列表
     chooseChatList(listName) {
+        console.log(listName);
       this.$store.commit("changeCurrentList", listName);
     },
     //打开意见反馈对话框
@@ -194,6 +229,14 @@ export default {
           });
         });
     },
+    // 点击按钮显示弹框
+    showProfileDialog() {
+      this.profileDialogVisible = true;
+    },
+    // 点击关闭按钮关闭弹框
+    closeProfileDialog() {
+      this.profileDialogVisible = false;
+    }
   },
 };
 </script>
@@ -212,7 +255,7 @@ export default {
   .imgProfile {
     width: 40px;
     height: 40px;
-    horiz-align: center;
+    //horiz-align: center;
     margin: 25px 10px;
   }
   .toolBtn {
@@ -267,4 +310,26 @@ export default {
   background-color: #2e3238;
   border: none;
 }
+</style>
+
+<style>
+.profile-content {
+  display: flex;
+  align-items: center;
+}
+
+.profile-image {
+  margin-right: 20px;
+}
+
+.profile-details p {
+  text-align: left;
+  margin-bottom: 10px;
+}
+.profile-divider {
+    width: 1px;
+    height: 100px; /* 根据需要调整高度 */
+    background-color: #ccc; /* 分割线颜色 */
+    margin: 0 20px; /* 根据需要调整左右边距 */
+  }
 </style>

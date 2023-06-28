@@ -3,20 +3,7 @@
     <ul v-if="currentList == '群聊'">
       <!--群聊列表-->
       <p style="padding: 2px 4px; height: 20px">群聊列表</p>
-      <!-- <li
-        :class="{
-          active: currentSession ? '群聊' == currentSession.username : false,
-        }"
-        v-on:click="changeCurrentSession(chatObj)"
-      >
-        <img
-          class="avatar"
-          src="https://ss1.bdstatic.com/70cFuXSh_Q1YnxGkpoWK1HF6hhy/it/u=1268761962,3976237305&fm=26&gp=0.jpg"
-        />
-        <el-badge :is-dot="isDot[user.username + '#群聊']"
-          ><p class="name">群聊</p></el-badge
-        >
-      </li> -->
+      <!-- </li> --> 
       <li
           v-for="item in groups"
           :class="{
@@ -82,6 +69,7 @@
         <p style="padding: 2px 4px; height: 20px">用户列表</p>
         <li
           v-for="item in users"
+          :key="item.username"
           :class="{
             active: currentSession
               ? item.username === currentSession.username
@@ -118,6 +106,49 @@
           </div>
         </li>
       </ul>
+    <ul v-if="currentList == '申请'">
+        <p style="padding: 2px 4px; height: 20px">好友申请列表</p>
+        <li v-for="request in friendRequests" :key="request.username">
+          <div style="display: flex;justify-content: space-between ">
+            <div>
+              <el-badge :is-dot="isDot[user.username + '#' + request.username]" style="">
+                <el-image
+                  class="avatar"
+                  :preview-src-list="[request.userProfile]"
+                  :src="request.userProfile"
+                  :alt="request.nickname"
+                >
+                  <div slot="error" class="image-slot">
+                    <i class="el-icon-picture-outline"></i>
+                  </div>
+                </el-image>
+              </el-badge>
+              <p class="name" style="font-size: 14px;">{{ request.nickname }}</p>
+            </div>
+            <div class="dropdown-container" style="position: relative; left: -15px;">
+              <el-dropdown trigger="hover">
+                <span class="el-dropdown-link">
+                  <i class="el-icon-more"></i>
+                </span>
+                <el-dropdown-menu slot="dropdown">
+                  <el-dropdown-item>
+                    <el-button  @click="rejectFriend(request.id)">
+                        拒绝
+                    </el-button>
+                  </el-dropdown-item>
+                  <el-dropdown-item>
+                    <el-button  @click="acceptFriend(request.id)">
+                        接受
+                    </el-button>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </el-dropdown>
+            </div>
+          </div>
+        </li>
+      </ul>
+
+
     </el-scrollbar>
   </div>
 </template>
@@ -130,7 +161,9 @@ export default {
   data() {
     return {
       user: this.$store.state.currentUser,
-      // chatObj: { username: "群聊", nickname: "群聊" }, //群聊实体对象（为方法复用而构造，对于User对象）
+      friends:[],
+      friendRequests:[],
+      chatObj: { username: "群聊", nickname: "群聊" }, //群聊实体对象（为方法复用而构造，对于User对象）
       robotObj: {
         username: "机器人",
         nickname: "机器人",
@@ -147,9 +180,74 @@ export default {
     "isDot",
     "currentList",
   ]),
+  created() {
+    const currentUserId = this.user.id;
+    // 在组件创建时获取好友列表
+    this.getRequest("/user/getFriends?userid="+currentUserId).then(resp => {
+        console.log("获取好友列表");
+        if(resp){
+            this.friends=resp;
+        }
+                
+    })
+
+    this.getRequest("/user/getFriendFrom?userid="+currentUserId).then(resp => {
+        console.log("获取好友申请列表");
+        console.log(resp);
+        if (resp) {
+            this.friendRequests = resp;
+        }
+    });
+    console.log(this.friendRequests);
+  },
   methods: {
     changeCurrentSession: function (currentSession) {
       this.$store.commit("changeCurrentSession", currentSession);
+    },
+    rejectFriend: function(id){
+        const currentUserId = this.user.id; // 当前用户的 ID
+        console.log("拒绝申请");
+        this.getRequest("/user/disagreeRequest?fromId="+id+"&toId="+currentUserId).then(resp => {
+            console.log(resp);
+        });
+        this.getRequest("/user/getFriends?userid="+currentUserId).then(resp => {
+            console.log("获取好友列表");
+            if(resp){
+                this.friends=resp;
+            }
+                    
+        });
+        this.getRequest("/user/getFriendFrom?userid="+currentUserId).then(resp => {
+        console.log("获取好友申请列表");
+        console.log(resp);
+        if (resp) {
+            this.friendRequests = resp;
+        }
+    });
+    },
+    acceptFriend: function(id){
+        const currentUserId = this.user.id; // 当前用户的 ID
+        console.log("同意申请");
+        this.getRequest("/user/agreeRequest?fromId="+id+"&toId="+currentUserId).then(resp => {
+            console.log(resp);
+        });
+        this.getRequest("/user/getFriends?userid="+currentUserId).then(resp => {
+            console.log("获取好友列表");
+            if(resp){
+                this.friends=resp;
+            }
+                    
+        });
+        this.getRequest("/user/getFriendFrom?userid="+currentUserId).then(resp => {
+        console.log("获取好友申请列表");
+        console.log(resp);
+        if (resp) {
+            this.friendRequests = resp;
+        }
+    });
+    },
+    output(x) {
+        console.log(x);
     },
   },
 };
@@ -192,9 +290,9 @@ export default {
   .stateItem {
     //在线状态的样式
     /*position: absolute;*/
-    /*left: 160px;*/
-    //margin-left: 100px;
-    //margin-right: 10px;
+    left: 160px;
+    margin-left: 100px;
+    margin-right: 10px;
   }
   .userList {
     max-height: 600px;

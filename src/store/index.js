@@ -130,7 +130,7 @@ const store = new Vuex.Store({
                         const element = state.groups[index];
                         element.username = element.groupName;
                         //前端添加
-                        element.groupProfile = "http://101.42.168.191/group1/M00/00/00/ZSqov2SYYUGAc9gJAA9xe41zLjo948.png";
+                        // element.groupProfile = "http://101.42.168.191/group1/M00/00/00/ZSqov2SYYUGAc9gJAA9xe41zLjo948.png";
                     }
                 }
             })
@@ -232,7 +232,7 @@ const store = new Vuex.Store({
                 /**
                  * 订阅私人消息
                  */
-                context.state.stomp.subscribe('/user/queue/chat', msg => {
+                context.state.stomp.subscribe('/user/queue/chat/'+context.state.currentUser.id, msg => {
                     //接收到的消息数据
                     let receiveMsg = JSON.parse(msg.body);
                     //没有选中用户或选中用户不是发来消息的那一方
@@ -250,6 +250,7 @@ const store = new Vuex.Store({
                     //获取发送方
                     receiveMsg.to = receiveMsg.from;
                     //提交消息记录
+                    receiveMsg.invoke = "back";
                     context.commit('addMessage', receiveMsg);
                 })
             }, error => {

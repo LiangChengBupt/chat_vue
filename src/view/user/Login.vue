@@ -64,9 +64,68 @@
               >登录</el-button
             >
           </div>
+          <div style="height: 10px;"></div>
+          <div>
+            <el-button
+              type="primary"
+              style="width: 97%"
+              @click="openCamera"
+              v-loading.fullscreen.lock="fullscreenLoading"
+              >人脸识别登录</el-button>
+              
+          </div>
         </el-form>
       </div>
     </el-main>
+
+
+    <el-dialog 
+      title="人脸识别登录"
+      :before-close="closeCamera"
+      :visible.sync="showCamera"
+      width="100%"
+      >
+      <div class="box">
+        <video id="videoCamera" class="canvas" :width="videoWidth" :height="videoHeight" autoPlay></video>
+        <canvas id="canvasCamera" class="canvas" :width="videoWidth" :height="videoHeight"></canvas>
+      </div>
+      <div slot="footer">
+        <el-button
+          @click="drawImage"
+          icon="el-icon-camera"
+          size="small">
+          拍照
+        </el-button>
+        <el-button
+          v-if="os"
+          @click="getCompetence"
+          icon="el-icon-video-camera"
+          size="small">
+          打开摄像头
+        </el-button>
+        <el-button
+          v-else
+          @click="stopNavigator"
+          icon="el-icon-switch-button"
+          size="small">
+          关闭摄像头
+        </el-button>
+        <el-button
+          @click="resetCanvas"
+          icon="el-icon-refresh"
+          size="small">
+          重置
+        </el-button>
+        <el-button
+          @click="LoginWithFace"
+          icon="el-icon-circle-close"
+          size="small">
+          上传
+        </el-button>
+      </div>      
+    </el-dialog>
+
+
     <el-dialog
       title="新用户注册"
       :before-close="closeRegisterDialog"
@@ -150,6 +209,52 @@
         >
       </div>
     </el-dialog>
+
+    <el-dialog 
+      title="人脸上传"
+      :before-close="closeSubmitface"
+      :visible.sync="showSubmitface"
+      width="100%"
+      >
+      <div class="box">
+        <video id="videoCamera" class="canvas" :width="videoWidth" :height="videoHeight" autoPlay></video>
+        <canvas id="canvasCamera" class="canvas" :width="videoWidth" :height="videoHeight"></canvas>
+      </div>
+      <div slot="footer">
+        <el-button
+          @click="drawImage"
+          icon="el-icon-camera"
+          size="small">
+          拍照
+        </el-button>
+        <el-button
+          v-if="os"
+          @click="getCompetence"
+          icon="el-icon-video-camera"
+          size="small">
+          打开摄像头
+        </el-button>
+        <el-button
+          v-else
+          @click="stopNavigator"
+          icon="el-icon-switch-button"
+          size="small">
+          关闭摄像头
+        </el-button>
+        <el-button
+          @click="resetCanvas"
+          icon="el-icon-refresh"
+          size="small">
+          重置
+        </el-button>
+        <el-button
+          @click="submitFace"
+          icon="el-icon-circle-close"
+          size="small">
+          上传
+        </el-button>
+      </div>      
+    </el-dialog>
   </el-container>
 </template>
 
@@ -157,6 +262,7 @@
 export default {
   name: "Login",
   data() {
+    
     var validateNickname = (rule, value, callback) => {
       if (value === "") {
         callback(new Error("请输入昵称"));
@@ -237,10 +343,30 @@ export default {
       uploadDisabled: false,
       //上传的文件信息列表
       fileList: [],
+      showCamera: false,
+      showSubmitface: false,
+      os: false,//控制摄像头开关
+      thisVideo: null,
+      thisContext: null,
+      thisCancas: null,
+      videoWidth: 500,
+      videoHeight: 400,
+      postOptions:[],
+      CertCtl:'',
+      // 遮罩层
+      loading: true,
+      
     };
+  },
+  create() {
+    this.getCompetence();
+  },
+  mount() {
+    this.getCompetence();
   },
   methods: {
     submitLogin() {
+        console.log("login!");
       this.$refs.loginForm.validate((valid) => {
         if (valid) {
           this.fullscreenLoading = true;
@@ -276,6 +402,121 @@ export default {
     showRegistryDialog() {
       this.registerDialogVisible = true;
     },
+    openCamera() {
+        console.log("face!");
+        this.showCamera=true;
+        this.getCompetence();
+    },
+    closeCamera() {
+        this.showCamera=false;
+        this.stopNavigator();
+    },
+    LoginWithFace() {  //人脸识别登录
+        this.fullscreenLoading = true;
+        this.postKeyValueRequest("/doLoginWithFace", this.imgSrc).then((resp) => {
+            console.log(resp);
+            console.log("postFace success");
+            setTimeout(() => {
+              this.fullscreenLoading = false;
+            }, 1000);
+            if (resp) {
+              //保存当前用户到vuex
+              this.$store.state.currentUser = resp.obj;
+              //保存登录用户到sessionStorage中
+              window.sessionStorage.setItem("user", JSON.stringify(resp.obj));
+              let path = this.$route.query.redirect;
+              this.$router.replace(
+                path == "/" || path == undefined ? "/chatroom" : path
+              );
+            } else {
+              this.changeverifyCode();
+              this.closeCamera();
+            }
+          }
+        );
+    },
+    // 调用摄像头权限
+    getCompetence() {
+        //必须在model中render后才可获取到dom节点,直接获取无法获取到model中的dom节点
+        this.$nextTick(() => {
+          const _this = this;
+          this.os = false;//切换成关闭摄像头
+          this.thisCancas = document.getElementById('canvasCamera');
+          this.thisContext = this.thisCancas.getContext('2d');
+          this.thisVideo = document.getElementById('videoCamera');
+          // 旧版本浏览器可能根本不支持mediaDevices，我们首先设置一个空对象
+          if (navigator.mediaDevices === undefined) {
+            navigator.menavigatordiaDevices = {}
+          }
+          // 一些浏览器实现了部分mediaDevices，我们不能只分配一个对象
+          // 使用getUserMedia，因为它会覆盖现有的属性。
+          // 这里，如果缺少getUserMedia属性，就添加它。
+          if (navigator.mediaDevices.getUserMedia === undefined) {
+            navigator.mediaDevices.getUserMedia = function (constraints) {
+              // 首先获取现存的getUserMedia(如果存在)
+              let getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.getUserMedia;
+              // 有些浏览器不支持，会返回错误信息
+              // 保持接口一致
+              if (!getUserMedia) {
+                return Promise.reject(new Error('getUserMedia is not implemented in this browser'))
+              }
+              // 否则，使用Promise将调用包装到旧的navigator.getUserMedia
+              return new Promise(function (resolve, reject) {
+                getUserMedia.call(navigator, constraints, resolve, reject)
+              })
+            }
+          }
+          const constraints = {
+            audio: false,
+            video: {width: _this.videoWidth, height: _this.videoHeight, transform: 'scaleX(-1)'}
+          };
+          navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+            // 旧的浏览器可能没有srcObject
+            if ('srcObject' in _this.thisVideo) {
+              _this.thisVideo.srcObject = stream
+            } else {
+              // 避免在新的浏览器中使用它，因为它正在被弃用。
+              _this.thisVideo.src = window.URL.createObjectURL(stream)
+            }
+            _this.thisVideo.onloadedmetadata = function (e) {
+              _this.thisVideo.play()
+            }
+          }).catch(err => {
+            this.$notify({
+              title: '警告',
+              message: '没有开启摄像头权限或浏览器版本不兼容.',
+              type: 'warning'
+            });
+          });
+        });
+      },
+      //绘制图片
+      drawImage() {
+        // 点击，canvas画图
+        this.thisContext.drawImage(this.thisVideo, 0, 0, this.videoWidth, this.videoHeight);
+        // 获取图片base64链接
+        this.imgSrc = this.thisCancas.toDataURL('image/png');
+        /*const imgSrc=this.imgSrc;*/
+      },
+      //清空画布
+      clearCanvas(id) {
+        let c = document.getElementById(id);
+        let cxt = c.getContext("2d");
+        cxt.clearRect(0, 0, c.width, c.height);
+      },
+      //重置画布
+      resetCanvas() {
+        this.imgSrc = "";
+        this.clearCanvas('canvasCamera');
+      },
+      //关闭摄像头
+      stopNavigator() {
+        if (this.thisVideo && this.thisVideo !== null) {
+          this.thisVideo.srcObject.getTracks()[0].stop();
+          this.os = true;//切换成打开摄像头
+        }
+      },
+      /*调用摄像头拍照结束*/
     /**
      *       图片上传的方法
      */
@@ -296,7 +537,7 @@ export default {
     imgSuccess(response, file, fileList) {
       this.uploadDisabled = true;
       this.registerForm.userProfile = response; //将返回的路径给表单的头像属性
-      console.log("图片url为：" + this.registerForm.userProfile);
+      console.log("图片url为: " + this.registerForm.userProfile);
     },
     // 图片上传失败
     imgError(err, file, fileList) {
@@ -325,8 +566,7 @@ export default {
         if (valid) {
           this.postRequest("/user/register", this.registerForm).then((resp) => {
             if (resp) {
-              this.registerDialogVisible = false;
-              location.reload(); //刷新页面，清空注册界面的上传组件中的图片
+              this.openSubmitface();
             }
           });
         } else {
@@ -336,6 +576,32 @@ export default {
         }
       });
     },
+    openSubmitface() {
+        console.log("Submitface!");
+        this.showSubmitface=true;
+        this.getCompetence();
+    },
+    closeSubmitface() {
+        this.showSubmitface=false;
+        this.stopNavigator();
+        this.registerDialogVisible = false;
+        location.reload(); //刷新页面，清空注册界面的上传组件中的图片
+    },
+    submitFace() {
+        this.showSubmitface=false;
+        this.postKeyValueRequest("/user/personImg/upload", 
+            {
+                "img": this.imgSrc,
+                "personName": this.registerForm.nickname,
+                "personId": this.registerForm.username,
+            }
+        ).then((resp) => {
+            if (resp) {
+              console.log("success");
+            }
+            this.closeSubmitface();
+         });
+    }
   },
 };
 </script>

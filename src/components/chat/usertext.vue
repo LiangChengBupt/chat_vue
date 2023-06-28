@@ -37,7 +37,7 @@
       id="textarea"
       placeholder="按 Ctrl + Enter 发送"
       v-model="content"
-      v-on:keyup="addMessage"
+      v-on:keyup="addMessage_usertext"
     >
     </textarea>
     <el-button
@@ -116,6 +116,8 @@ export default {
         msgObj.fromId = current.id;
         msgObj.toId = currenTo.id;
         console.log(msgObj);
+        msgObj.notSelf = false;
+        msgObj.invoke = "text send";
         this.$store.state.stomp.send("/ws/chat", {}, JSON.stringify(msgObj));
         //提交私聊消息记录
         this.$store.commit("addMessage", msgObj);
@@ -123,7 +125,7 @@ export default {
       //清空输入框
       this.content = "";
     },
-    addMessage(e) {
+    addMessage_usertext(e) {
       if (e.ctrlKey && e.keyCode === 13 && this.content.length) {
         this.addMessageByClick();
       }
@@ -173,6 +175,8 @@ export default {
         msgObj.from = this.$store.state.currentUser.username;
         msgObj.fromNickname = this.$store.state.currentUser.nickname;
         msgObj.to = this.currentSession.username;
+        msgObj.notSelf = false;
+        msgObj.invoke = "graph";
         this.$store.state.stomp.send("/ws/chat", {}, JSON.stringify(msgObj));
         //提交私聊消息记录
         this.$store.commit("addMessage", msgObj);
